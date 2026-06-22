@@ -11,21 +11,21 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const commands = [
   {
     name: 'roster',
-    description: 'Muestra el top 5 de agentes del DoEA',
+    description: 'Displays the top 5 DoEA agents',
   },
   {
     name: 'puntos',
-    description: 'Suma o resta puntos a un agente y lo actualiza en la web',
+    description: 'Adds or subtracts points from an agent and updates the web',
     options: [
       {
         name: 'id',
-        description: 'ID numérico del agente',
+        description: 'Numeric ID of the agent',
         type: 4, // INTEGER
         required: true
       },
       {
         name: 'cantidad',
-        description: 'Cantidad de puntos a sumar (escribe un número negativo para restar)',
+        description: 'Amount of points to add (use negative to subtract)',
         type: 4, // INTEGER
         required: true
       }
@@ -33,20 +33,20 @@ const commands = [
   },
   {
     name: 'override',
-    description: 'Genera un código de autorización temporal para entrar a la web (Solo Alto Mando)',
+    description: 'Generates a temporary authorization code to enter the web (High Command Only)',
   }
 ];
 
 client.once('ready', async () => {
-  console.log(`📡 ENLACE ESTABLECIDO - Logueado como ${client.user.tag}!`);
+  console.log(`📡 LINK ESTABLISHED - Logged in as ${client.user.tag}!`);
   
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   try {
-    console.log('Sincronizando comandos con Discord...');
+    console.log('Synchronizing commands with Discord...');
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-    console.log('✅ ¡Comandos cargados! El bot está listo para recibir órdenes.');
+    console.log('✅ Commands loaded! The bot is ready to receive orders.');
   } catch (error) {
-    console.error('❌ Error al cargar comandos:', error);
+    console.error('❌ Error loading commands:', error);
   }
 });
 
@@ -60,7 +60,7 @@ client.on('interactionCreate', async interaction => {
     // Leer la base de datos de Supabase
     const { data: cloudData, error } = await supabase.from('doea_state').select('state').eq('id', 1).single();
     if (error || !cloudData?.state?.personnel) {
-      return interaction.editReply('❌ Error al acceder a los archivos clasificados del departamento.');
+      return interaction.editReply('❌ Error accessing classified department files.');
     }
     
     const personnel = cloudData.state.personnel;
@@ -71,7 +71,7 @@ client.on('interactionCreate', async interaction => {
       .setTitle('TOP 5 AGENTES - DoEA ROSTER')
       .setColor('#ff003c')
       .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/e/ec/SCP_Foundation_%28emblem%29.svg')
-      .setDescription(sorted.map((p, i) => `**${i+1}. ${p.name}** (Nivel ${p.clearance})\nPuntos: ${p.points || 0} | Faltas: ${p.strikes || 0}`).join('\n\n'));
+      .setDescription(sorted.map((p, i) => `**${i+1}. ${p.name}** (Level ${p.clearance})\nPoints: ${p.points || 0} | Strikes: ${p.strikes || 0}`).join('\n\n'));
       
     await interaction.editReply({ embeds: [embed] });
   }
@@ -88,14 +88,14 @@ client.on('interactionCreate', async interaction => {
     // Bajar la base de datos de Supabase
     const { data: cloudData, error } = await supabase.from('doea_state').select('state').eq('id', 1).single();
     if (error || !cloudData?.state?.personnel) {
-      return interaction.editReply('❌ Error de conexión con la terminal.');
+      return interaction.editReply('❌ Connection error with the terminal.');
     }
     
     const personnel = cloudData.state.personnel;
     const agentIndex = personnel.findIndex(p => p.id === agentId);
     
     if (agentIndex === -1) {
-      return interaction.editReply(`⚠️ Agente no encontrado: El ID ${agentId} no existe en el Roster.`);
+      return interaction.editReply(`⚠️ Agent not found: ID ${agentId} does not exist in the Roster.`);
     }
     
     // Sumar los puntos
@@ -105,7 +105,7 @@ client.on('interactionCreate', async interaction => {
     const newLog = { 
       id: Date.now(), 
       time: new Date().toLocaleTimeString(), 
-      message: `DISCORD BOT: Modificados ${amount} puntos para el Agente ID ${agentId}`, 
+      message: `DISCORD BOT: Modified ${amount} points for Agent ID ${agentId}`, 
       timestamp: Date.now() 
     };
     const audit = [newLog, ...(cloudData.state.audit || [])].slice(0, 50);
@@ -115,9 +115,9 @@ client.on('interactionCreate', async interaction => {
     await supabase.from('doea_state').upsert({ id: 1, state: cloudData.state });
     
     const embed = new EmbedBuilder()
-      .setTitle('PUNTUACIÓN ACTUALIZADA')
+      .setTitle('SCORE UPDATED')
       .setColor('#00ff00')
-      .setDescription(`Se han sumado **${amount} puntos** al agente **${personnel[agentIndex].name}**.\nPuntuación Total: **${personnel[agentIndex].points}**\n\n*Esta acción ya se refleja en la página web.*`);
+      .setDescription(`Added **${amount} points** to agent **${personnel[agentIndex].name}**.\nTotal Score: **${personnel[agentIndex].points}**\n\n*This action is already reflected on the web.*`);
       
     await interaction.editReply({ embeds: [embed] });
   }
@@ -129,7 +129,7 @@ client.on('interactionCreate', async interaction => {
     
     // interaction.member contiene información del usuario en el servidor
     if (!interaction.member.roles.cache.has(REQUIRED_ROLE)) {
-      return interaction.reply({ content: '⛔ ACCESO DENEGADO. No tienes el nivel de autorización requerido en este servidor para solicitar un código Override.', ephemeral: true });
+      return interaction.reply({ content: '⛔ ACCESS DENIED. You do not have the required authorization level in this server to request an Override code.', ephemeral: true });
     }
 
     await interaction.deferReply({ ephemeral: true }); // Respuesta oculta, solo la ve el usuario
@@ -141,7 +141,7 @@ client.on('interactionCreate', async interaction => {
     // Guardarlo en Supabase
     const { data: cloudData, error } = await supabase.from('doea_state').select('state').eq('id', 1).single();
     if (error || !cloudData?.state) {
-      return interaction.editReply('❌ Error de conexión con la base de datos de autorización.');
+      return interaction.editReply('❌ Connection error with the authorization database.');
     }
 
     // Inicializar el array de códigos si no existe
@@ -152,9 +152,9 @@ client.on('interactionCreate', async interaction => {
     await supabase.from('doea_state').upsert({ id: 1, state: state });
 
     const embed = new EmbedBuilder()
-      .setTitle('CÓDIGO DE AUTORIZACIÓN GENERADO')
+      .setTitle('AUTHORIZATION CODE GENERATED')
       .setColor('#ffaa00')
-      .setDescription(`Tu código de acceso temporal de un solo uso es:\n\n**\`${randomCode}\`**\n\nIntrodúcelo en la terminal web en el apartado de *Manual Override*.\nEste código se destruirá después de usarlo.`);
+      .setDescription(`Your temporary single-use access code is:\n\n**\`${randomCode}\`**\n\nEnter it in the web terminal under *Manual Override*.\nThis code will be destroyed after use.`);
       
     await interaction.editReply({ embeds: [embed] });
   }

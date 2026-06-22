@@ -169,8 +169,8 @@ function LoginView({ onLogin, personnel, data, setData }) {
             </div>
             <div>
               <label style={{color: '#ffaa00'}}>AUTHORIZATION CODE</label>
-              <input name="overrideCode" required placeholder="Ej: AUTH-7X9B" style={{borderColor: '#ffaa00'}} onChange={() => audio.playBeep('type')} />
-              <div style={{fontSize: '0.65rem', color: '#ffaa00', marginTop: '5px'}}>Obtén este código usando /override en Discord.</div>
+              <input name="overrideCode" required placeholder="e.g. AUTH-7X9B" style={{borderColor: '#ffaa00'}} onChange={() => audio.playBeep('type')} />
+              <div style={{fontSize: '0.65rem', color: '#ffaa00', marginTop: '5px'}}>Get this code using /override in Discord.</div>
             </div>
             <button className="primary" type="submit" style={{marginTop: '10px'}}>OVERRIDE LOGIN</button>
             <button type="button" onClick={() => { audio.playBeep('click'); setMode('auth'); }} style={{fontSize: '0.7rem', padding: '4px', border: 'none', background: 'transparent', color: 'var(--text-muted)'}}>
