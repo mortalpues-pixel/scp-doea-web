@@ -7,6 +7,30 @@ import './App.css';
 
 const SCP_LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/e/ec/SCP_Foundation_%28emblem%29.svg";
 
+const fetchAvatarThroughBot = async (discordId) => {
+  const reqId = Date.now().toString();
+  try {
+    const { data: cloudData } = await supabase.from('doea_state').select('state').eq('id', 1).single();
+    let state = cloudData.state || {};
+    state.avatarRequests = [...(state.avatarRequests || []), { reqId, discordId }];
+    await supabase.from('doea_state').upsert({ id: 1, state });
+
+    for (let i = 0; i < 15; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      const { data: pollData } = await supabase.from('doea_state').select('state').eq('id', 1).single();
+      const res = (pollData?.state?.avatarResponses || []).find(r => r.reqId === reqId);
+      if (res) {
+        pollData.state.avatarResponses = pollData.state.avatarResponses.filter(r => r.reqId !== reqId);
+        await supabase.from('doea_state').upsert({ id: 1, state: pollData.state });
+        return res.url;
+      }
+    }
+  } catch (e) {
+    console.error("Avatar fetch error", e);
+  }
+  return null;
+};
+
 const initialData = {
   gois: [
     { id: 1, name: 'Valravn Corp', type: 'PMC', threat: 'High', status: 'Hostile', relation: 'Hostile' },
@@ -297,8 +321,12 @@ function App() {
           
           <div className="id-card-body">
             <div className="id-photo-container">
-              <div className="id-photo">
-                <ImageIcon size={64} color="#333333" />
+              <div className="id-photo" style={{display:'flex', justifyContent:'center', alignItems:'center', height:'100%', overflow:'hidden'}}>
+                {idCardToPrint.avatarUrl ? (
+                  <img src={idCardToPrint.avatarUrl} crossOrigin="anonymous" alt="Avatar" style={{width: '100%', height: '100%', objectFit: 'cover'}} />
+                ) : (
+                  <ImageIcon size={64} color="#333333" />
+                )}
               </div>
             </div>
             <div className="id-details" style={{color: 'black'}}>
@@ -665,6 +693,7 @@ function TerminalView({ data, currentUser }) {
 function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
   const [showModal, setShowModal] = useState(false);
   const [editingPerson, setEditingPerson] = useState(null);
+  const [saveStatus, setSaveStatus] = useState('');
 
   const handleAdd = async (e) => {
     e.preventDefault();
@@ -673,6 +702,13 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
     const isNew = !editingPerson;
     const newId = isNew ? Math.floor(100000 + Math.random() * 900000) : editingPerson.id;
     const discordId = fd.get('discordId')?.trim();
+
+    setSaveStatus('AUTHENTICATING WITH SECURE MAINFRAME...');
+    let avatarUrl = editingPerson?.avatarUrl || null;
+    if (discordId) {
+       avatarUrl = await fetchAvatarThroughBot(discordId) || avatarUrl;
+    }
+    setSaveStatus('');
 
     const personData = {
       id: newId,
@@ -684,11 +720,26 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
       points: editingPerson ? (editingPerson.points || 0) : 0,
       honor: editingPerson ? (editingPerson.honor || 0) : 0,
       timezone: editingPerson ? (editingPerson.timezone || 'Unknown') : 'Unknown',
-      strikes: editingPerson ? (editingPerson.strikes || 0) : 0
+      strikes: editingPerson ? (editingPerson.strikes || 0) : 0,
+      discordId: discordId || editingPerson?.discordId,
+      avatarUrl
     };
     
     if (editingPerson) {
-      setData({...data, personnel: (data.personnel || []).map(p => p.id === editingPerson.id ? personData : p)});
+      let pendingDMs = data.pendingDMs || [];
+      if (editingPerson.discordId || discordId) {
+         pendingDMs = [...pendingDMs, {
+            dmId: Date.now().toString(),
+            action: 'EDIT',
+            discordId: discordId || editingPerson.discordId,
+            name: personData.name,
+            role: personData.role,
+            department: personData.department,
+            clearance: personData.clearance,
+            code: personData.id
+         }];
+      }
+      setData({...data, personnel: (data.personnel || []).map(p => p.id === editingPerson.id ? personData : p), pendingDMs});
       logAction(`UPDATED PERSONNEL: ${personData.name}`);
     } else {
       let pendingDMs = data.pendingDMs || [];
@@ -713,8 +764,8 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
           
           <div class="id-card-body">
             <div class="id-photo-container">
-              <div class="id-photo" style="display:flex; justify-content:center; align-items:center; height:100%">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+              <div class="id-photo" style="display:flex; justify-content:center; align-items:center; height:100%; overflow:hidden;">
+                ${personData.avatarUrl ? `<img src="${personData.avatarUrl}" crossorigin="anonymous" style="width:100%; height:100%; object-fit:cover;" />` : `<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>`}
               </div>
             </div>
             <div class="id-details" style="color: black">
@@ -764,6 +815,8 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
         }
 
         pendingDMs = [...pendingDMs, {
+          dmId: Date.now().toString(),
+          action: 'CREATE',
           discordId,
           name: personData.name,
           role: personData.role,
@@ -819,7 +872,16 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
                   <button style={{flex: 1, padding: '5px', fontSize: '0.8rem', backgroundColor: '#500', borderColor: '#a00', color: 'white'}} onClick={() => { 
                     audio.playBeep('error'); 
                     if(confirm(`Are you sure you want to terminate the record for ${person.name}?`)) {
-                      setData({...data, personnel: data.personnel.filter(p => p.id !== person.id)});
+                      let pendingDMs = data.pendingDMs || [];
+                      if (person.discordId) {
+                         pendingDMs = [...pendingDMs, {
+                            dmId: Date.now().toString(),
+                            action: 'DELETE',
+                            discordId: person.discordId,
+                            name: person.name
+                         }];
+                      }
+                      setData({...data, personnel: data.personnel.filter(p => p.id !== person.id), pendingDMs});
                       logAction(`DELETED PERSONNEL RECORD: ${person.name}`);
                     }
                   }}>DELETE</button>
@@ -859,7 +921,7 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
                   <div style={{fontSize: '0.65rem', color: '#7289da', marginTop: '5px'}}>If provided, the bot will DM their ID and code.</div>
                 </div>
               )}
-              <button className="primary" type="submit" style={{marginTop: '10px'}}>{editingPerson ? "UPDATE RECORD" : "SAVE PERSONNEL"}</button>
+              <button className="primary" type="submit" style={{marginTop: '10px'}} disabled={!!saveStatus}>{saveStatus || (editingPerson ? "UPDATE RECORD" : "SAVE PERSONNEL")}</button>
             </form>
         </Modal>
       )}

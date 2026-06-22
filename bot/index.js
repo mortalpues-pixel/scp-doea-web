@@ -7,6 +7,8 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
+const processedDMs = new Set();
+
 // Definimos nuestros dos primeros comandos
 const commands = [
   {
@@ -60,45 +62,75 @@ client.once('ready', async () => {
       
       let changed = false;
       for (const dm of dms) {
+        if (!dm.dmId) {
+          // If old format (no dmId), assign a random one so we don't block
+          dm.dmId = Date.now().toString() + Math.random();
+        }
+        if (processedDMs.has(dm.dmId)) continue;
+        
         try {
           const user = await client.users.fetch(dm.discordId);
           if (user) {
-            const embed = new EmbedBuilder()
-              .setTitle('[SECURE CHANNEL] - DoEA IDENTIFICATION ISSUED')
-              .setColor('#00ccff')
-              .addFields(
-                { name: 'AGENT NAME', value: dm.name, inline: true },
-                { name: 'ROLE', value: dm.role, inline: true },
-                { name: 'DEPARTMENT', value: dm.department, inline: true },
-                { name: 'CLEARANCE LEVEL', value: `Level ${dm.clearance}`, inline: true },
-                { name: 'AUTHORIZATION CODE', value: `**\`${dm.code}\`**`, inline: false }
-              )
-              .setFooter({ text: 'Welcome to the Department of External Affairs. Keep this code secure.' });
-
+            let embed;
             let files = [];
-            if (dm.photoData) {
-              const base64Data = dm.photoData.replace(/^data:image\/\w+;base64,/, "");
-              const buffer = Buffer.from(base64Data, 'base64');
-              const attachment = new AttachmentBuilder(buffer, { name: 'idcard.png' });
-              files.push(attachment);
-              embed.setImage('attachment://idcard.png');
-            } else {
-              embed.setThumbnail('https://upload.wikimedia.org/wikipedia/commons/e/ec/SCP_Foundation_%28emblem%29.svg');
+            
+            if (dm.action === 'DELETE') {
+              embed = new EmbedBuilder()
+                .setTitle('[WARNING] - PERSONNEL FILE TERMINATED')
+                .setColor('#ff0000')
+                .setDescription(`Agent **${dm.name}**, your personnel file has been deleted from the DoEA database. Your access is revoked.`)
+                .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/e/ec/SCP_Foundation_%28emblem%29.svg')
+                .setFooter({ text: 'Department of External Affairs' });
+            } else if (dm.action === 'EDIT') {
+              embed = new EmbedBuilder()
+                .setTitle('[SYSTEM UPDATE] - PERSONNEL FILE UPDATED')
+                .setColor('#ffff00')
+                .setDescription(`Agent **${dm.name}**, your personnel file in the DoEA database has been updated.`)
+                .addFields(
+                  { name: 'ROLE', value: dm.role, inline: true },
+                  { name: 'DEPARTMENT', value: dm.department, inline: true },
+                  { name: 'CLEARANCE LEVEL', value: `Level ${dm.clearance}`, inline: true }
+                )
+                .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/e/ec/SCP_Foundation_%28emblem%29.svg')
+                .setFooter({ text: 'Department of External Affairs' });
+            } else { // CREATE
+              embed = new EmbedBuilder()
+                .setTitle('[SECURE CHANNEL] - DoEA IDENTIFICATION ISSUED')
+                .setColor('#00ccff')
+                .addFields(
+                  { name: 'AGENT NAME', value: dm.name, inline: true },
+                  { name: 'ROLE', value: dm.role, inline: true },
+                  { name: 'DEPARTMENT', value: dm.department, inline: true },
+                  { name: 'CLEARANCE LEVEL', value: `Level ${dm.clearance}`, inline: true },
+                  { name: 'AUTHORIZATION CODE', value: `**\`${dm.code}\`**`, inline: false }
+                )
+                .setFooter({ text: 'Welcome to the Department of External Affairs. Keep this code secure.' });
+
+              if (dm.photoData) {
+                const base64Data = dm.photoData.replace(/^data:image\/\w+;base64,/, "");
+                const buffer = Buffer.from(base64Data, 'base64');
+                const attachment = new AttachmentBuilder(buffer, { name: 'idcard.png' });
+                files.push(attachment);
+                embed.setImage('attachment://idcard.png');
+              } else {
+                embed.setThumbnail('https://upload.wikimedia.org/wikipedia/commons/e/ec/SCP_Foundation_%28emblem%29.svg');
+              }
             }
 
             await user.send({ embeds: [embed], files });
-            console.log(`✅ DM sent to ${dm.name} (${dm.discordId})`);
+            console.log(`✅ DM (${dm.action || 'CREATE'}) sent to ${dm.name} (${dm.discordId})`);
+            processedDMs.add(dm.dmId);
             changed = true;
           }
         } catch (e) {
           console.error(`❌ Failed to send DM to ${dm.discordId}:`, e);
-          // If DM fails (e.g., user has DMs closed), we still remove it so we don't get stuck
+          processedDMs.add(dm.dmId);
           changed = true;
         }
       }
 
       if (changed) {
-        state.pendingDMs = []; // Clear queue
+        state.pendingDMs = state.pendingDMs.filter(dm => !processedDMs.has(dm.dmId));
         await supabase.from('doea_state').upsert({ id: 1, state });
       }
 
@@ -106,6 +138,36 @@ client.once('ready', async () => {
       console.error('Error checking pending DMs:', err);
     }
   }, 10000);
+
+  // Check for Avatar Requests every 2 seconds
+  setInterval(async () => {
+    try {
+      const { data: cloudData, error } = await supabase.from('doea_state').select('state').eq('id', 1).single();
+      if (error || !cloudData?.state?.avatarRequests || cloudData.state.avatarRequests.length === 0) return;
+
+      const state = cloudData.state;
+      const requests = state.avatarRequests;
+      state.avatarResponses = state.avatarResponses || [];
+
+      let changed = false;
+      for (const req of requests) {
+        try {
+          const user = await client.users.fetch(req.discordId);
+          const url = user.displayAvatarURL({ extension: 'png', size: 256 });
+          state.avatarResponses.push({ reqId: req.reqId, url });
+          changed = true;
+        } catch (e) {
+          state.avatarResponses.push({ reqId: req.reqId, url: null });
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        state.avatarRequests = [];
+        await supabase.from('doea_state').upsert({ id: 1, state });
+      }
+    } catch (err) { }
+  }, 2000);
 });
 
 client.on('interactionCreate', async interaction => {
