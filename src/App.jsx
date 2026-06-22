@@ -89,19 +89,22 @@ function LoginView({ onLogin, personnel, data, setData }) {
     }
   };
 
-  const handleManualSubmit = (e) => {
+  const handleManualSubmit = async (e) => {
     e.preventDefault();
     audio.playBeep('click');
     
     const overrideCode = e.target.overrideCode.value.trim();
-    const codes = data?.overrideCodes || [];
+    
+    // Fetch directly from cloud to avoid stale state
+    const { data: cloudData } = await supabase.from('doea_state').select('state').eq('id', 1).single();
+    const codes = cloudData?.state?.overrideCodes || [];
     
     if (codes.includes(overrideCode)) {
       // Remove the code so it's one-time use
-      setData(prev => {
-        const newCodes = (prev.overrideCodes || []).filter(c => c !== overrideCode);
-        return { ...prev, overrideCodes: newCodes };
-      });
+      const newCodes = codes.filter(c => c !== overrideCode);
+      const newState = { ...cloudData.state, overrideCodes: newCodes };
+      
+      setData(newState); // This will update local state and upsert to supabase
       
       const name = e.target.name.value;
       const clearance = parseInt(e.target.clearance.value);
