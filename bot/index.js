@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const { createClient } = require('@supabase/supabase-js');
 
 // Conexión a la nube de Supabase compartida con la web
@@ -66,7 +66,6 @@ client.once('ready', async () => {
             const embed = new EmbedBuilder()
               .setTitle('[SECURE CHANNEL] - DoEA IDENTIFICATION ISSUED')
               .setColor('#00ccff')
-              .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/e/ec/SCP_Foundation_%28emblem%29.svg')
               .addFields(
                 { name: 'AGENT NAME', value: dm.name, inline: true },
                 { name: 'ROLE', value: dm.role, inline: true },
@@ -76,7 +75,18 @@ client.once('ready', async () => {
               )
               .setFooter({ text: 'Welcome to the Department of External Affairs. Keep this code secure.' });
 
-            await user.send({ embeds: [embed] });
+            let files = [];
+            if (dm.photoData) {
+              const base64Data = dm.photoData.replace(/^data:image\/\w+;base64,/, "");
+              const buffer = Buffer.from(base64Data, 'base64');
+              const attachment = new AttachmentBuilder(buffer, { name: 'idcard.png' });
+              files.push(attachment);
+              embed.setImage('attachment://idcard.png');
+            } else {
+              embed.setThumbnail('https://upload.wikimedia.org/wikipedia/commons/e/ec/SCP_Foundation_%28emblem%29.svg');
+            }
+
+            await user.send({ embeds: [embed], files });
             console.log(`✅ DM sent to ${dm.name} (${dm.discordId})`);
             changed = true;
           }

@@ -666,7 +666,7 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
   const [showModal, setShowModal] = useState(false);
   const [editingPerson, setEditingPerson] = useState(null);
 
-  const handleAdd = (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault();
     audio.playBeep('click');
     const fd = new FormData(e.target);
@@ -693,13 +693,84 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
     } else {
       let pendingDMs = data.pendingDMs || [];
       if (discordId) {
+        // --- INVISIBLE PHOTO STUDIO ---
+        const wrapper = document.createElement('div');
+        wrapper.className = 'id-card-view-wrapper';
+        wrapper.style.position = 'absolute';
+        wrapper.style.left = '-9999px';
+        wrapper.style.top = '-9999px';
+        wrapper.style.opacity = '1';
+        
+        wrapper.innerHTML = `
+        <div id="hidden-id-card-${personData.id}" class="id-card" style="opacity: 1">
+          <div class="id-card-header">
+            <img src="${SCP_LOGO_URL}" crossorigin="anonymous" alt="SCP Logo" class="id-card-logo" />
+            <div class="id-card-title">
+              <h2 style="color: white; margin:0; font-size:1.5rem">SCP FOUNDATION</h2>
+              <p style="color: #aaaaaa; margin:0; font-size:0.7rem; letter-spacing:1px">SECURE. CONTAIN. PROTECT.</p>
+            </div>
+          </div>
+          
+          <div class="id-card-body">
+            <div class="id-photo-container">
+              <div class="id-photo" style="display:flex; justify-content:center; align-items:center; height:100%">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+              </div>
+            </div>
+            <div class="id-details" style="color: black">
+              <div class="id-field">
+                <label style="color: #666666">NAME</label>
+                <div style="color: black">${personData.name.toUpperCase()}</div>
+              </div>
+              <div class="id-field">
+                <label style="color: #666666">ROLE</label>
+                <div style="color: black">${personData.role.toUpperCase()}</div>
+              </div>
+              <div class="id-field">
+                <label style="color: #666666">DEPARTMENT</label>
+                <div style="color: black">${personData.department.toUpperCase()}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="id-card-footer">
+            <div class="id-clearance" style="color: #333333">
+              CLEARANCE LEVEL
+              <div class="id-level-number" style="color: #b71c1c">${personData.clearance}</div>
+            </div>
+            <div class="id-barcode" style="color: black">
+              ||| ||||| |||| || ||| |||| ||
+              <div style="color: black">AUTH: ${personData.id.toString().padStart(6, '0')}</div>
+            </div>
+          </div>
+        </div>
+        `;
+        document.body.appendChild(wrapper);
+        
+        let photoData = null;
+        try {
+          const element = document.getElementById(`hidden-id-card-${personData.id}`);
+          const canvas = await html2canvas(element, { 
+            backgroundColor: '#ffffff', 
+            scale: 2,
+            useCORS: true,
+            allowTaint: true
+          });
+          photoData = canvas.toDataURL("image/png", 1.0);
+        } catch(e) {
+          console.error("Failed hidden canvas capture", e);
+        } finally {
+          document.body.removeChild(wrapper);
+        }
+
         pendingDMs = [...pendingDMs, {
           discordId,
           name: personData.name,
           role: personData.role,
           department: personData.department,
           clearance: personData.clearance,
-          code: personData.id
+          code: personData.id,
+          photoData
         }];
       }
       setData({...data, personnel: [personData, ...(data.personnel || [])], pendingDMs});
