@@ -670,8 +670,12 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
     e.preventDefault();
     audio.playBeep('click');
     const fd = new FormData(e.target);
+    const isNew = !editingPerson;
+    const newId = isNew ? Math.floor(100000 + Math.random() * 900000) : editingPerson.id;
+    const discordId = fd.get('discordId')?.trim();
+
     const personData = {
-      id: editingPerson ? editingPerson.id : Date.now(),
+      id: newId,
       name: fd.get('name'),
       role: fd.get('role'),
       clearance: parseInt(fd.get('clearance')),
@@ -687,7 +691,18 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
       setData({...data, personnel: (data.personnel || []).map(p => p.id === editingPerson.id ? personData : p)});
       logAction(`UPDATED PERSONNEL: ${personData.name}`);
     } else {
-      setData({...data, personnel: [personData, ...(data.personnel || [])]});
+      let pendingDMs = data.pendingDMs || [];
+      if (discordId) {
+        pendingDMs = [...pendingDMs, {
+          discordId,
+          name: personData.name,
+          role: personData.role,
+          department: personData.department,
+          clearance: personData.clearance,
+          code: personData.id
+        }];
+      }
+      setData({...data, personnel: [personData, ...(data.personnel || [])], pendingDMs});
       logAction(`REGISTERED PERSONNEL: ${personData.name}`);
     }
     
@@ -746,28 +761,35 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
 
       {showModal && (
         <Modal title={editingPerson ? "EDIT PERSONNEL" : "ADD PERSONNEL"} onClose={() => { setShowModal(false); setEditingPerson(null); }}>
-          <form onSubmit={handleAdd} style={{display: 'flex', flexDirection: 'column', gap: '15px'}} onChange={() => audio.playBeep('type')}>
-            <div><label>Name</label><input name="name" required defaultValue={editingPerson?.name || ''} /></div>
-            <div><label>Role / Title</label><input name="role" required defaultValue={editingPerson?.role || ''} /></div>
-            <div>
-              <label>Clearance Level</label>
-              <select name="clearance" defaultValue={editingPerson?.clearance || '1'}>
-                <option value="1">1 - Restricted</option>
-                <option value="2">2 - Confidential</option>
-                <option value="3">3 - Secret</option>
-                <option value="4">4 - Top Secret</option>
-                <option value="5">5 - Thaumiel</option>
-              </select>
-            </div>
-            <div><label>Department</label><input name="department" required defaultValue={editingPerson?.department || ''} /></div>
-            <div>
-              <label>Status</label>
-              <select name="status" defaultValue={editingPerson?.status || 'Active'}>
-                <option>Active</option><option>MIA</option><option>KIA</option><option>Terminated</option>
-              </select>
-            </div>
-            <button className="primary" type="submit" style={{marginTop: '10px'}}>{editingPerson ? "UPDATE RECORD" : "SAVE PERSONNEL"}</button>
-          </form>
+            <form onSubmit={handleAdd} style={{display: 'flex', flexDirection: 'column', gap: '15px'}} onChange={() => audio.playBeep('type')}>
+              <div><label>Name</label><input name="name" required defaultValue={editingPerson?.name || ''} /></div>
+              <div><label>Role / Title</label><input name="role" required defaultValue={editingPerson?.role || ''} /></div>
+              <div>
+                <label>Clearance Level</label>
+                <select name="clearance" defaultValue={editingPerson?.clearance || '1'}>
+                  <option value="1">1 - Restricted</option>
+                  <option value="2">2 - Confidential</option>
+                  <option value="3">3 - Secret</option>
+                  <option value="4">4 - Top Secret</option>
+                  <option value="5">5 - Thaumiel</option>
+                </select>
+              </div>
+              <div><label>Department</label><input name="department" required defaultValue={editingPerson?.department || ''} /></div>
+              <div>
+                <label>Status</label>
+                <select name="status" defaultValue={editingPerson?.status || 'Active'}>
+                  <option>Active</option><option>MIA</option><option>KIA</option><option>Terminated</option>
+                </select>
+              </div>
+              {!editingPerson && (
+                <div>
+                  <label style={{color: '#7289da'}}>Discord User ID (Optional)</label>
+                  <input name="discordId" placeholder="e.g. 1518754009094033561" style={{borderColor: '#7289da'}} />
+                  <div style={{fontSize: '0.65rem', color: '#7289da', marginTop: '5px'}}>If provided, the bot will DM their ID and code.</div>
+                </div>
+              )}
+              <button className="primary" type="submit" style={{marginTop: '10px'}}>{editingPerson ? "UPDATE RECORD" : "SAVE PERSONNEL"}</button>
+            </form>
         </Modal>
       )}
     </div>

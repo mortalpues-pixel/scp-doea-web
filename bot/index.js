@@ -48,6 +48,54 @@ client.once('ready', async () => {
   } catch (error) {
     console.error('❌ Error loading commands:', error);
   }
+
+  // Check for pending DMs every 10 seconds
+  setInterval(async () => {
+    try {
+      const { data: cloudData, error } = await supabase.from('doea_state').select('state').eq('id', 1).single();
+      if (error || !cloudData?.state?.pendingDMs || cloudData.state.pendingDMs.length === 0) return;
+
+      const state = cloudData.state;
+      const dms = state.pendingDMs;
+      
+      let changed = false;
+      for (const dm of dms) {
+        try {
+          const user = await client.users.fetch(dm.discordId);
+          if (user) {
+            const embed = new EmbedBuilder()
+              .setTitle('[SECURE CHANNEL] - DoEA IDENTIFICATION ISSUED')
+              .setColor('#00ccff')
+              .setThumbnail('https://upload.wikimedia.org/wikipedia/commons/e/ec/SCP_Foundation_%28emblem%29.svg')
+              .addFields(
+                { name: 'AGENT NAME', value: dm.name, inline: true },
+                { name: 'ROLE', value: dm.role, inline: true },
+                { name: 'DEPARTMENT', value: dm.department, inline: true },
+                { name: 'CLEARANCE LEVEL', value: `Level ${dm.clearance}`, inline: true },
+                { name: 'AUTHORIZATION CODE', value: `**\`${dm.code}\`**`, inline: false }
+              )
+              .setFooter({ text: 'Welcome to the Department of External Affairs. Keep this code secure.' });
+
+            await user.send({ embeds: [embed] });
+            console.log(`✅ DM sent to ${dm.name} (${dm.discordId})`);
+            changed = true;
+          }
+        } catch (e) {
+          console.error(`❌ Failed to send DM to ${dm.discordId}:`, e);
+          // If DM fails (e.g., user has DMs closed), we still remove it so we don't get stuck
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        state.pendingDMs = []; // Clear queue
+        await supabase.from('doea_state').upsert({ id: 1, state });
+      }
+
+    } catch (err) {
+      console.error('Error checking pending DMs:', err);
+    }
+  }, 10000);
 });
 
 client.on('interactionCreate', async interaction => {
