@@ -116,10 +116,14 @@ client.once('ready', async () => {
         
         try {
             if (dm.action === 'APPLICATION') {
-              const guild = client.guilds.cache.first();
-              if (guild) {
-                const channel = guild.channels.cache.get('1518962078252007454') || guild.channels.cache.find(c => c.name.includes('admin') || c.name.includes('command') || c.name.includes('staff')) || guild.channels.cache.filter(c => c.isTextBased()).first();
-                if (channel) {
+              let channel = client.channels.cache.get('1518962078252007454');
+              if (!channel) {
+                const guild = client.guilds.cache.first();
+                if (guild) {
+                  channel = guild.channels.cache.find(c => c.name.includes('apply') || c.name.includes('admin') || c.name.includes('command') || c.name.includes('staff')) || guild.channels.cache.filter(c => c.isTextBased()).first();
+                }
+              }
+              if (channel) {
                   const embed = new EmbedBuilder()
                     .setTitle('NEW APPLICATION RECEIVED')
                     .setColor('#ffaa00')
