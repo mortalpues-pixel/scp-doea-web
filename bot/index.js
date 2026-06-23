@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder, AttachmentBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { createClient } = require('@supabase/supabase-js');
 
 // Conexión a la nube de Supabase compartida con la web
@@ -115,7 +115,87 @@ client.once('ready', async () => {
         if (processedDMs.has(dm.dmId)) continue;
         
         try {
-          const user = await client.users.fetch(dm.discordId);
+            if (dm.action === 'APPLICATION') {
+              const guild = client.guilds.cache.first();
+              if (guild) {
+                const channel = guild.channels.cache.find(c => c.name.includes('admin') || c.name.includes('command') || c.name.includes('staff')) || guild.channels.cache.filter(c => c.isTextBased()).first();
+                if (channel) {
+                  const embed = new EmbedBuilder()
+                    .setTitle('NEW APPLICATION RECEIVED')
+                    .setColor('#ffaa00')
+                    .setDescription(`New application for the DoEA submitted via the secure terminal.`)
+                    .addFields(
+                      { name: 'APPLICANT DISCORD ID', value: dm.discordId, inline: false },
+                      { name: 'DESIRED ROLE', value: dm.role, inline: false },
+                      { name: 'QUALIFICATIONS / MOTIVE', value: dm.reason, inline: false }
+                    )
+                    .setFooter({ text: 'Department of External Affairs - Recruitment Division' });
+                  
+                  const row = new ActionRowBuilder()
+                    .addComponents(
+                      new ButtonBuilder().setCustomId(`app_accept_${dm.discordId}`).setLabel('ACCEPT').setStyle(ButtonStyle.Success),
+                      new ButtonBuilder().setCustomId(`app_reject_${dm.discordId}`).setLabel('REJECT').setStyle(ButtonStyle.Danger)
+                    );
+                  await channel.send({ embeds: [embed], components: [row] });
+                }
+              }
+              processedDMs.add(dm.dmId);
+              changed = true;
+              continue;
+            }
+
+            if (dm.action === 'MISSION') {
+              const guild = client.guilds.cache.first();
+              if (guild) {
+                const channel = guild.channels.cache.find(c => c.name.includes('mision') || c.name.includes('mission') || c.name.includes('operacion') || c.name.includes('anuncio')) || guild.channels.cache.filter(c => c.isTextBased()).first();
+                if (channel) {
+                  const embed = new EmbedBuilder()
+                    .setTitle(`[NEW DIRECTIVE] - ${dm.title}`)
+                    .setColor('#00ffcc')
+                    .setDescription(dm.description)
+                    .addFields(
+                      { name: 'TARGET GOI', value: dm.targetGoi || 'None', inline: true },
+                      { name: 'THREAT LEVEL', value: dm.threat, inline: true }
+                    )
+                    .setFooter({ text: 'DoEA Operations Command' });
+                  
+                  const row = new ActionRowBuilder()
+                    .addComponents(
+                      new ButtonBuilder().setCustomId(`mission_join_${dm.missionId}`).setLabel('SIGN UP FOR MISSION').setStyle(ButtonStyle.Primary)
+                    );
+                  await channel.send({ content: '@everyone', embeds: [embed], components: [row] });
+                }
+              }
+              processedDMs.add(dm.dmId);
+              changed = true;
+              continue;
+            }
+
+            if (dm.action === 'CONTRACT') {
+              const guild = client.guilds.cache.first();
+              if (guild) {
+                const channel = guild.channels.cache.find(c => c.name.toLowerCase().includes(dm.goiName.toLowerCase()) || c.name.includes('diploma')) || guild.channels.cache.filter(c => c.isTextBased()).first();
+                if (channel) {
+                  const embed = new EmbedBuilder()
+                    .setTitle('OFFICIAL TREATY PROPOSAL')
+                    .setColor('#ffbb00')
+                    .setDescription(`The Department of External Affairs (SCP Foundation) has proposed a formal treaty to the **${dm.goiName}**.\n\n**TERMS:**\n${dm.terms}`)
+                    .setFooter({ text: 'DoEA Diplomatic Corps' });
+                  
+                  const row = new ActionRowBuilder()
+                    .addComponents(
+                      new ButtonBuilder().setCustomId(`contract_sign_${dm.goiId}`).setLabel('SIGN TREATY').setStyle(ButtonStyle.Success),
+                      new ButtonBuilder().setCustomId(`contract_reject_${dm.goiId}`).setLabel('REJECT').setStyle(ButtonStyle.Danger)
+                    );
+                  await channel.send({ content: dm.discordId ? `<@${dm.discordId}>` : '', embeds: [embed], components: [row] });
+                }
+              }
+              processedDMs.add(dm.dmId);
+              changed = true;
+              continue;
+            }
+
+            const user = await client.users.fetch(dm.discordId);
           if (user) {
             let embed;
             let files = [];
@@ -216,8 +296,41 @@ client.once('ready', async () => {
   }, 2000);
 });
 
-client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
+  client.on('interactionCreate', async interaction => {
+    if (interaction.isButton()) {
+      try {
+        if (interaction.customId.startsWith('app_accept_')) {
+          const applicantId = interaction.customId.replace('app_accept_', '');
+          await interaction.reply({ content: `✅ <@${applicantId}> has been accepted into the DoEA! Make sure to register them in the terminal.`, ephemeral: false });
+          return;
+        }
+        if (interaction.customId.startsWith('app_reject_')) {
+          const applicantId = interaction.customId.replace('app_reject_', '');
+          await interaction.reply({ content: `❌ <@${applicantId}>'s application has been rejected.`, ephemeral: false });
+          return;
+        }
+        if (interaction.customId.startsWith('mission_join_')) {
+          const missionId = interaction.customId.replace('mission_join_', '');
+          await interaction.reply({ content: `🛡️ <@${interaction.user.id}> has signed up for the mission!`, ephemeral: false });
+          return;
+        }
+        if (interaction.customId.startsWith('contract_sign_')) {
+          const goiId = interaction.customId.replace('contract_sign_', '');
+          await interaction.reply({ content: `🤝 The proposed treaty has been **SIGNED** by <@${interaction.user.id}>.`, ephemeral: false });
+          return;
+        }
+        if (interaction.customId.startsWith('contract_reject_')) {
+          const goiId = interaction.customId.replace('contract_reject_', '');
+          await interaction.reply({ content: `⚠️ The proposed treaty has been **REJECTED** by <@${interaction.user.id}>.`, ephemeral: false });
+          return;
+        }
+      } catch (err) {
+        console.error('Error handling button interaction:', err);
+      }
+      return;
+    }
+
+    if (!interaction.isChatInputCommand()) return;
 
   // COMANDO /ROSTER
   if (interaction.commandName === 'roster') {

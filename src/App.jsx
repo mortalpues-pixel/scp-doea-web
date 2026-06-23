@@ -95,6 +95,72 @@ function BootSequence({ onComplete }) {
   );
 }
 
+function PublicApplyView({ setData }) {
+  const [submitted, setSubmitted] = useState(false);
+  
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    audio.playBeep('click');
+    const fd = new FormData(e.target);
+    const discordId = fd.get('discordId');
+    const role = fd.get('role');
+    const reason = fd.get('reason');
+    
+    const newDM = {
+      dmId: Date.now().toString(),
+      action: 'APPLICATION',
+      discordId,
+      role,
+      reason
+    };
+    
+    setData(prev => prev, { pendingDMs: [newDM] });
+    setSubmitted(true);
+  };
+
+  if (submitted) {
+    return (
+      <div className="login-container fade-in">
+        <div className="login-box glow-panel">
+          <div style={{display: 'flex', justifyContent: 'center', marginBottom: '20px'}}>
+            <img src={SCP_LOGO_URL} crossOrigin="anonymous" alt="SCP Logo" width="80" height="80" />
+          </div>
+          <h2 style={{textAlign: 'center', color: 'var(--text-highlight)'}}>APPLICATION RECEIVED</h2>
+          <p style={{textAlign: 'center', color: 'var(--text-muted)'}}>Your application has been submitted to the Department of External Affairs. If accepted, you will be contacted via secure channels.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="login-container fade-in" style={{alignItems: 'flex-start', paddingTop: '50px', overflowY: 'auto'}}>
+      <div className="login-box glow-panel" style={{width: '600px', maxWidth: '90%', marginBottom: '50px'}}>
+        <div style={{display: 'flex', justifyContent: 'center', marginBottom: '20px'}}>
+          <img src={SCP_LOGO_URL} crossOrigin="anonymous" alt="SCP Logo" width="80" height="80" />
+        </div>
+        <h2 style={{textAlign: 'center', color: 'var(--text-highlight)', marginBottom: '10px'}}>DEPARTMENT OF EXTERNAL AFFAIRS</h2>
+        <p style={{textAlign: 'center', color: 'var(--text-muted)', marginBottom: '30px'}}>Official Application Form - Level 1 Clearance Required</p>
+        
+        <form onSubmit={handleSubmit} style={{display: 'flex', flexDirection: 'column', gap: '20px'}} onChange={() => audio.playBeep('type')}>
+          <div>
+            <label style={{color: 'var(--text-highlight)'}}>Discord ID (Required for contact)</label>
+            <input name="discordId" required placeholder="e.g. 1234567890" style={{width: '100%'}}/>
+          </div>
+          <div>
+            <label style={{color: 'var(--text-highlight)'}}>Desired Position / Specialization</label>
+            <input name="role" required placeholder="e.g. Diplomat, Field Agent, Cover-up Specialist" style={{width: '100%'}}/>
+          </div>
+          <div>
+            <label style={{color: 'var(--text-highlight)'}}>Why do you wish to join the DoEA? What are your qualifications?</label>
+            <textarea name="reason" required rows="5" style={{width: '100%', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical'}} placeholder="Explain your background and motives..." />
+          </div>
+          <button type="submit" className="primary" style={{marginTop: '10px', width: '100%', padding: '15px'}}>SUBMIT APPLICATION</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function LoginView({ onLogin, personnel, data, setData }) {
   const [mode, setMode] = useState('auth'); // 'auth' or 'manual'
   const [isScanning, setIsScanning] = useState(false);
@@ -296,6 +362,12 @@ function App() {
     const newLog = { id: Date.now(), time: new Date().toLocaleTimeString(), message: `LOGIN: Agent ${user.name} (Clearance ${user.clearance})`, timestamp: Date.now() };
     setData(prev => ({...prev, audit: [newLog, ...(prev.audit || [])].slice(0, 50)}));
   };
+
+  const isApplyRoute = window.location.pathname === '/apply';
+
+  if (isApplyRoute) {
+    return <PublicApplyView setData={setData} />;
+  }
 
   if (!isBooted) {
     return <BootSequence onComplete={() => setIsBooted(true)} />;
@@ -968,7 +1040,18 @@ function DeploymentsKanbanView({ data, setData, logAction, currentUser }) {
       purpose: fd.get('purpose'),
       outcome: 'Planning' // Default to planning
     };
-    setData({...data, deployments: [newDep, ...deployments]});
+    
+    const newDM = {
+      dmId: Date.now().toString(),
+      action: 'MISSION',
+      missionId: newDep.id.toString(),
+      title: `Operation for ${newDep.team}`,
+      description: newDep.purpose,
+      threat: 'Unknown',
+      targetGoi: 'TBD'
+    };
+
+    setData({...data, deployments: [newDep, ...deployments]}, { pendingDMs: [newDM] });
     logAction(`PLANNED NEW OPERATION FOR ${newDep.team}`);
     setShowModal(false);
   };
@@ -1202,6 +1285,7 @@ function Modal({ children, onClose, title }) {
 
 function GoiView({ data, setData, logAction, currentUser }) {
   const [showModal, setShowModal] = useState(false);
+  const [treatyGoi, setTreatyGoi] = useState(null);
   
   const handleAdd = (e) => {
     e.preventDefault();
@@ -1255,13 +1339,48 @@ function GoiView({ data, setData, logAction, currentUser }) {
                   <span className={`status-badge status-${goi.relation === 'At War' || goi.relation === 'Hostile' ? 'hostile' : (goi.relation === 'Allied' ? 'allied' : 'unknown')}`}>{goi.relation}</span>
                 </td>
                 <td style={{padding: '10px'}}>
-                  {currentUser.clearance >= 4 && <button onClick={() => { audio.playBeep('click'); setData({...data, gois: data.gois.filter(g => g.id !== goi.id)}); logAction(`DELETED GOI RECORD: ${goi.name}`); }} style={{padding: '4px 8px', fontSize: '0.8rem'}}>DELETE</button>}
+                  <div style={{display: 'flex', gap: '5px'}}>
+                    <button onClick={() => { audio.playBeep('click'); setTreatyGoi(goi); }} style={{padding: '4px 8px', fontSize: '0.8rem'}} className="primary">PROPOSE TREATY</button>
+                    {currentUser.clearance >= 4 && <button onClick={() => { audio.playBeep('click'); setData({...data, gois: data.gois.filter(g => g.id !== goi.id)}); logAction(`DELETED GOI RECORD: ${goi.name}`); }} style={{padding: '4px 8px', fontSize: '0.8rem'}}>DELETE</button>}
+                  </div>
                 </td>
               </tr>
             )})}
           </tbody>
         </table>
       </div>
+
+      {treatyGoi && (
+        <Modal title={`DRAFT TREATY: ${treatyGoi.name}`} onClose={() => setTreatyGoi(null)}>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            audio.playBeep('click');
+            const fd = new FormData(e.target);
+            const newDM = {
+              dmId: Date.now().toString(),
+              action: 'CONTRACT',
+              goiId: treatyGoi.id.toString(),
+              goiName: treatyGoi.name,
+              terms: fd.get('terms'),
+              discordId: fd.get('discordId')
+            };
+            setData(prev => prev, { pendingDMs: [newDM] });
+            logAction(`DRAFTED TREATY PROPOSAL FOR ${treatyGoi.name}`);
+            setTreatyGoi(null);
+          }} style={{display: 'flex', flexDirection: 'column', gap: '15px'}} onChange={() => audio.playBeep('type')}>
+            <p style={{color: 'var(--text-muted)'}}>This proposal will be sent to secure diplomatic channels for signature.</p>
+            <div>
+              <label>Representative Discord ID (Optional)</label>
+              <input name="discordId" placeholder="e.g. 1234567890" style={{width: '100%'}} />
+            </div>
+            <div>
+              <label>Treaty Terms & Conditions</label>
+              <textarea name="terms" required rows="6" style={{width: '100%', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '10px', fontFamily: 'inherit', outline: 'none', resize: 'vertical'}} placeholder="State the conditions, non-aggression pact details, exchange rates, etc." />
+            </div>
+            <button type="submit" className="primary" style={{marginTop: '10px'}}>SEND TO DIPLOMATIC CHANNEL</button>
+          </form>
+        </Modal>
+      )}
 
       {showModal && (
         <Modal title="REGISTER NEW GOI" onClose={() => setShowModal(false)}>
