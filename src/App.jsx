@@ -1443,14 +1443,13 @@ function EvaluationsView({ data, setData, logAction, currentUser }) {
             <th style={{padding: '10px'}}>ROLE</th>
             <th style={{padding: '10px'}}>DEPT</th>
             <th style={{padding: '10px', textAlign: 'center'}}>POINTS</th>
-            <th style={{padding: '10px', textAlign: 'center'}}>HONOR</th>
             <th style={{padding: '10px', textAlign: 'center'}}>TIMEZONE</th>
             <th style={{padding: '10px', textAlign: 'center'}}>STRIKES</th>
           </tr>
         </thead>
         <tbody>
           {list.length === 0 && (
-            <tr><td colSpan="7" style={{padding: '20px', textAlign: 'center', color: 'var(--text-muted)'}}>NO PERSONNEL FOUND IN THIS CATEGORY.</td></tr>
+            <tr><td colSpan="6" style={{padding: '20px', textAlign: 'center', color: 'var(--text-muted)'}}>NO PERSONNEL FOUND IN THIS CATEGORY.</td></tr>
           )}
           {list.map(p => (
             <tr key={p.id} style={{borderBottom: '1px solid var(--border-color)'}} className="table-row">
@@ -1460,10 +1459,6 @@ function EvaluationsView({ data, setData, logAction, currentUser }) {
               <td style={{padding: '10px', textAlign: 'center'}}>
                 <span style={{display: 'inline-block', width: '30px'}}>{p.points || 0}</span>
                 {currentUser.clearance >= 3 && <button onClick={() => updateStat(p.id, 'points')} style={{marginLeft: '5px', padding: '2px 5px', fontSize: '0.7rem'}}>+/-</button>}
-              </td>
-              <td style={{padding: '10px', textAlign: 'center'}}>
-                <span style={{display: 'inline-block', width: '30px'}}>{p.honor || 0}</span>
-                {currentUser.clearance >= 3 && <button onClick={() => updateStat(p.id, 'honor')} style={{marginLeft: '5px', padding: '2px 5px', fontSize: '0.7rem'}}>+/-</button>}
               </td>
               <td style={{padding: '10px', textAlign: 'center'}}>
                 <span style={{display: 'inline-block', width: '80px'}}>{p.timezone || 'Unknown'}</span>
