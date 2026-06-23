@@ -118,16 +118,18 @@ client.once('ready', async () => {
             if (dm.action === 'APPLICATION') {
               const guild = client.guilds.cache.first();
               if (guild) {
-                const channel = guild.channels.cache.find(c => c.name.includes('admin') || c.name.includes('command') || c.name.includes('staff')) || guild.channels.cache.filter(c => c.isTextBased()).first();
+                const channel = guild.channels.cache.get('1518962078252007454') || guild.channels.cache.find(c => c.name.includes('admin') || c.name.includes('command') || c.name.includes('staff')) || guild.channels.cache.filter(c => c.isTextBased()).first();
                 if (channel) {
                   const embed = new EmbedBuilder()
                     .setTitle('NEW APPLICATION RECEIVED')
                     .setColor('#ffaa00')
                     .setDescription(`New application for the DoEA submitted via the secure terminal.`)
                     .addFields(
-                      { name: 'APPLICANT DISCORD ID', value: dm.discordId, inline: false },
+                      { name: 'APPLICANT DISCORD', value: `<@${dm.discordId}> (${dm.discordId})`, inline: false },
+                      { name: 'CHARACTER NAME', value: dm.charName || 'Not specified', inline: false },
                       { name: 'DESIRED ROLE', value: dm.role, inline: false },
-                      { name: 'QUALIFICATIONS / MOTIVE', value: dm.reason, inline: false }
+                      { name: 'EXPERIENCE / BACKGROUND', value: dm.experience || 'None', inline: false },
+                      { name: 'MOTIVE / REASON', value: dm.reason, inline: false }
                     )
                     .setFooter({ text: 'Department of External Affairs - Recruitment Division' });
                   
