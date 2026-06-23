@@ -1080,6 +1080,27 @@ function MeetingsView({ data, setData, logAction, currentUser }) {
     setShowModal(false);
   };
 
+  const handleDelete = (id) => {
+    audio.playBeep('error');
+    if (window.confirm("CONFIRM DELETION OF MEETING RECORD?")) {
+      setData({...data, meetings: data.meetings.filter(m => m.id !== id)});
+      logAction(`DELETED MEETING RECORD #${id}`);
+    }
+  };
+
+  const toggleStatus = (id) => {
+    audio.playBeep('click');
+    const newMeetings = (data.meetings || []).map(m => {
+      if (m.id === id) {
+        const nextStatus = m.status === 'Scheduled' ? 'Completed' : (m.status === 'Completed' ? 'Cancelled' : 'Scheduled');
+        return {...m, status: nextStatus};
+      }
+      return m;
+    });
+    setData({...data, meetings: newMeetings});
+    logAction(`UPDATED MEETING STATUS #${id}`);
+  };
+
   return (
     <div className="fade-in">
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
@@ -1096,6 +1117,7 @@ function MeetingsView({ data, setData, logAction, currentUser }) {
               <th style={{padding: '10px'}}>AGENT ASSIGNED</th>
               <th style={{padding: '10px'}}>TOPIC</th>
               <th style={{padding: '10px'}}>STATUS</th>
+              <th style={{padding: '10px'}}>ACTIONS</th>
             </tr>
           </thead>
           <tbody>
@@ -1108,7 +1130,12 @@ function MeetingsView({ data, setData, logAction, currentUser }) {
                 <td style={{padding: '10px', color: 'var(--accent-red-light)'}}>{meeting.agent}</td>
                 <td style={{padding: '10px'}}>{meeting.topic}</td>
                 <td style={{padding: '10px'}}>
-                  <span className={`status-badge ${meeting.status === 'Scheduled' ? 'status-neutral' : (meeting.status === 'Completed' ? 'status-allied' : 'status-hostile')}`}>{meeting.status}</span>
+                  <span onClick={() => currentUser.clearance >= 2 && toggleStatus(meeting.id)} style={{cursor: currentUser.clearance >= 2 ? 'pointer' : 'default'}} className={`status-badge ${meeting.status === 'Scheduled' ? 'status-neutral' : (meeting.status === 'Completed' ? 'status-allied' : 'status-hostile')}`}>{meeting.status}</span>
+                </td>
+                <td style={{padding: '10px'}}>
+                  {currentUser.clearance >= 2 && (
+                    <button onClick={() => handleDelete(meeting.id)} style={{padding: '2px 6px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '5px', background: 'transparent', border: '1px solid var(--accent-red)', color: 'var(--accent-red)'}}><X size={12}/> DELETE</button>
+                  )}
                 </td>
               </tr>
             )})}
@@ -1488,6 +1515,14 @@ function IncidentsView({ data, setData, logAction, currentUser, setPrint }) {
     setShowModal(false);
   };
 
+  const handleDelete = (id) => {
+    audio.playBeep('error');
+    if (window.confirm("CONFIRM DELETION OF INCIDENT REPORT?")) {
+      setData({...data, incidents: data.incidents.filter(i => i.id !== id)});
+      logAction(`DELETED INCIDENT REPORT #${id}`);
+    }
+  };
+
   const generateReport = (inc, goi) => {
     audio.playBeep('click');
     setPrint({
@@ -1526,6 +1561,9 @@ DoEA RECORDING SYSTEM - SECURE, CONTAIN, PROTECT.`
                 <div style={{display: 'flex', gap: '10px'}}>
                   <span className={`status-badge status-${inc.severity === 'Critical' ? 'hostile' : 'neutral'}`}>{inc.severity}</span>
                   <button onClick={() => generateReport(inc, goi)} style={{padding: '2px 6px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '5px'}}><Printer size={12}/> PRINT</button>
+                  {currentUser.clearance >= 2 && (
+                    <button onClick={() => handleDelete(inc.id)} style={{padding: '2px 6px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '5px', background: 'transparent', border: '1px solid var(--accent-red)', color: 'var(--accent-red)'}}><X size={12}/> DELETE</button>
+                  )}
                 </div>
               </div>
               <h3 style={{color: 'var(--accent-red)'}}>INVOLVING: <Redacted clearance={currentUser.clearance} required={reqClearance} text={goi ? goi.name : 'UNKNOWN'} /></h3>
@@ -1580,6 +1618,14 @@ function CommsView({ data, setData, logAction, currentUser, setPrint }) {
     setShowModal(false);
   };
 
+  const handleDelete = (id) => {
+    audio.playBeep('error');
+    if (window.confirm("CONFIRM DELETION OF COMMUNICATION TRANSCRIPT?")) {
+      setData({...data, comms: data.comms.filter(c => c.id !== id)});
+      logAction(`DELETED TRANSCRIPT #${id}`);
+    }
+  };
+
   const generateReport = (comm, goi) => {
     audio.playBeep('click');
     setPrint({
@@ -1613,7 +1659,12 @@ AUTHORIZED BY: ${currentUser.name}`
               <div style={{display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', marginBottom: '10px'}}>
                 <span>DATE: {comm.date}</span>
                 <span>AGENT INVOLVED: {comm.agent}</span>
-                <button onClick={() => generateReport(comm, goi)} style={{padding: '2px 6px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '5px'}}><Printer size={12}/> PRINT</button>
+                <div style={{display: 'flex', gap: '10px'}}>
+                  <button onClick={() => generateReport(comm, goi)} style={{padding: '2px 6px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '5px'}}><Printer size={12}/> PRINT</button>
+                  {currentUser.clearance >= 2 && (
+                    <button onClick={() => handleDelete(comm.id)} style={{padding: '2px 6px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '5px', background: 'transparent', border: '1px solid var(--accent-red)', color: 'var(--accent-red)'}}><X size={12}/> DELETE</button>
+                  )}
+                </div>
               </div>
               <h3 style={{color: 'var(--info)'}}>GOI: {goi ? goi.name : 'UNKNOWN'}</h3>
               <div style={{background: 'var(--bg-dark)', padding: '15px', borderLeft: '3px solid var(--info)', marginTop: '10px'}}>
