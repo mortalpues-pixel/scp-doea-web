@@ -129,18 +129,17 @@ client.once('ready', async () => {
                 if (guild) {
                   channel = guild.channels.cache.find(c => c.name.includes('apply') || c.name.includes('admin') || c.name.includes('command') || c.name.includes('staff')) || guild.channels.cache.filter(c => c.isTextBased()).first();
                 }
-              }
-              if (channel) {
+                if (channel) {
                   const embed = new EmbedBuilder()
                     .setTitle('NEW APPLICATION RECEIVED')
                     .setColor('#ffaa00')
                     .setDescription(`New application for the DoEA submitted via the secure terminal.`)
                     .addFields(
-                      { name: 'APPLICANT DISCORD', value: `<@${dm.discordId}> (${dm.discordId})`, inline: false },
+                      { name: 'APPLICANT DISCORD', value: dm.discordId ? `<@${dm.discordId}> (${dm.discordId})` : 'Unknown', inline: false },
                       { name: 'CHARACTER NAME', value: dm.charName || 'Not specified', inline: false },
-                      { name: 'DESIRED ROLE', value: dm.role, inline: false },
+                      { name: 'DESIRED ROLE', value: dm.role || 'Not specified', inline: false },
                       { name: 'EXPERIENCE / BACKGROUND', value: dm.experience || 'None', inline: false },
-                      { name: 'MOTIVE / REASON', value: dm.reason, inline: false }
+                      { name: 'MOTIVE / REASON', value: dm.reason || 'Not specified', inline: false }
                     )
                     .setFooter({ text: 'Department of External Affairs - Recruitment Division' });
                   
@@ -150,6 +149,8 @@ client.once('ready', async () => {
                       new ButtonBuilder().setCustomId(`app_reject_${dm.discordId}`).setLabel('REJECT').setStyle(ButtonStyle.Danger)
                     );
                   await channel.send({ embeds: [embed], components: [row] });
+                } else {
+                  console.error('Failed to find channel for APPLICATION');
                 }
               }
               processedDMs.add(dm.dmId);
