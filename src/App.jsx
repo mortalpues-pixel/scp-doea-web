@@ -96,100 +96,6 @@ function BootSequence({ onComplete }) {
   );
 }
 
-function PublicApplyView({ setData, onClose, applicationsOpen }) {
-  const [submitted, setSubmitted] = useState(false);
-  
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    audio.playBeep('click');
-    const fd = new FormData(e.target);
-    const charName = fd.get('charName');
-    const discordId = fd.get('discordId');
-    const role = fd.get('role');
-    const experience = fd.get('experience');
-    const reason = fd.get('reason');
-    
-    const newDM = {
-      dmId: Date.now().toString(),
-      action: 'APPLICATION',
-      charName,
-      discordId,
-      role,
-      experience,
-      reason
-    };
-    
-    setData(prev => prev, { pendingDMs: [newDM] });
-    setSubmitted(true);
-  };
-
-  if (applicationsOpen === false) {
-    return (
-      <div className="login-container fade-in">
-        <div className="login-box glow-panel" style={{position: 'relative'}}>
-          <button onClick={onClose} style={{position: 'absolute', top: '10px', left: '10px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 'bold'}}>{"< BACK"}</button>
-          <div style={{display: 'flex', justifyContent: 'center', marginBottom: '20px'}}>
-            <img src={SCP_LOGO_URL} crossOrigin="anonymous" alt="SCP Logo" width="80" height="80" />
-          </div>
-          <h2 style={{textAlign: 'center', color: 'var(--text-highlight)'}}>RECRUITMENT CLOSED</h2>
-          <p style={{textAlign: 'center', color: 'var(--text-muted)'}}>The Department of External Affairs is not currently accepting new applications. Please try again later.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (submitted) {
-    return (
-      <div className="login-container fade-in">
-        <div className="login-box glow-panel">
-          <div style={{display: 'flex', justifyContent: 'center', marginBottom: '20px'}}>
-            <img src={SCP_LOGO_URL} crossOrigin="anonymous" alt="SCP Logo" width="80" height="80" />
-          </div>
-          <h2 style={{textAlign: 'center', color: 'var(--text-highlight)'}}>APPLICATION RECEIVED</h2>
-          <p style={{textAlign: 'center', color: 'var(--text-muted)', marginBottom: '20px'}}>Your application has been submitted to the Department of External Affairs. If accepted, you will be contacted via secure channels.</p>
-          <button onClick={onClose} className="primary" style={{width: '100%'}}>RETURN TO LOGIN</button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="login-container fade-in" style={{justifyContent: 'flex-start', alignItems: 'center', paddingTop: '50px', paddingBottom: '50px', overflowY: 'auto'}}>
-      <div className="login-box glow-panel" style={{width: '600px', maxWidth: '90%', position: 'relative'}}>
-        <button onClick={onClose} style={{position: 'absolute', top: '10px', left: '10px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 'bold'}}>{"< BACK"}</button>
-        <div style={{display: 'flex', justifyContent: 'center', marginBottom: '20px'}}>
-          <img src={SCP_LOGO_URL} crossOrigin="anonymous" alt="SCP Logo" width="80" height="80" />
-        </div>
-        <h2 style={{textAlign: 'center', color: 'var(--text-highlight)', marginBottom: '10px'}}>DEPARTMENT OF EXTERNAL AFFAIRS</h2>
-        <p style={{textAlign: 'center', color: 'var(--text-muted)', marginBottom: '30px'}}>Official Application Form - Level 1 Clearance Required</p>
-        
-        <form onSubmit={handleSubmit} style={{display: 'flex', flexDirection: 'column', gap: '20px'}} onChange={() => audio.playBeep('type')}>
-          <div>
-            <label style={{color: 'var(--text-highlight)'}}>Character Name</label>
-            <input name="charName" required placeholder="e.g. Dr. John Doe" style={{width: '100%'}}/>
-          </div>
-          <div>
-            <label style={{color: 'var(--text-highlight)'}}>Discord ID (Required for contact)</label>
-            <input name="discordId" required placeholder="e.g. 1234567890" style={{width: '100%'}}/>
-          </div>
-          <div>
-            <label style={{color: 'var(--text-highlight)'}}>Desired Position / Specialization</label>
-            <input name="role" required placeholder="e.g. Diplomat, Field Agent, Cover-up Specialist" style={{width: '100%'}}/>
-          </div>
-          <div>
-            <label style={{color: 'var(--text-highlight)'}}>Previous Experience / Background</label>
-            <textarea name="experience" required rows="3" style={{width: '100%', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical'}} placeholder="List any previous roles in the Foundation or relevant skills..." />
-          </div>
-          <div>
-            <label style={{color: 'var(--text-highlight)'}}>Why do you wish to join the DoEA?</label>
-            <textarea name="reason" required rows="4" style={{width: '100%', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-main)', padding: '10px', outline: 'none', fontFamily: 'inherit', resize: 'vertical'}} placeholder="Explain your motives for transferring to External Affairs..." />
-          </div>
-          <button type="submit" className="primary" style={{marginTop: '10px', width: '100%', padding: '15px'}}>SUBMIT APPLICATION</button>
-        </form>
-      </div>
-    </div>
-  );
-}
 
 function LoginView({ onLogin, personnel, data, setData }) {
   const [mode, setMode] = useState('auth'); // 'auth' or 'manual'
@@ -246,9 +152,6 @@ function LoginView({ onLogin, personnel, data, setData }) {
     }, 2000);
   };
 
-  if (mode === 'apply') {
-    return <PublicApplyView setData={setData} onClose={() => setMode('auth')} applicationsOpen={data?.applicationsOpen} />;
-  }
 
   return (
     <div className="login-container">
@@ -274,9 +177,7 @@ function LoginView({ onLogin, personnel, data, setData }) {
             <button className="primary" type="submit" style={{marginTop: '10px'}} disabled={isScanning}>
               {isScanning ? 'SCANNING...' : 'AUTHENTICATE'}
             </button>
-            <button type="button" onClick={() => { audio.playBeep('click'); setMode('apply'); }} style={{fontSize: '0.8rem', padding: '10px', border: '1px solid var(--accent-red)', background: 'transparent', color: 'var(--text-highlight)', marginTop: '5px'}}>
-              RECRUITMENT APPLICATION
-            </button>
+
             <button type="button" onClick={() => { audio.playBeep('click'); setMode('manual'); }} style={{fontSize: '0.7rem', padding: '4px', border: 'none', background: 'transparent', color: 'var(--text-muted)'}}>
               [MANUAL OVERRIDE]
             </button>
