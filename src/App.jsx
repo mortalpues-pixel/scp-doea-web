@@ -243,14 +243,35 @@ function App() {
     fetchCloudData();
   }, []);
 
-  const setData = (actionOrData) => {
+  const setData = async (actionOrData, customQueues = null) => {
+    let newData;
     setLocalData(prev => {
-      const newData = typeof actionOrData === 'function' ? actionOrData(prev) : actionOrData;
+      newData = typeof actionOrData === 'function' ? actionOrData(prev) : actionOrData;
       localStorage.setItem('scp_doea_data', JSON.stringify(newData));
-      // Upsert to Supabase
-      supabase.from('doea_state').upsert({ id: 1, state: newData }).then();
       return newData;
     });
+
+    try {
+      const { data: cloudData } = await supabase.from('doea_state').select('state').eq('id', 1).single();
+      const finalState = { ...newData };
+      
+      if (cloudData && cloudData.state) {
+        if (customQueues && customQueues.pendingDMs) {
+          finalState.pendingDMs = [...(cloudData.state.pendingDMs || []), ...customQueues.pendingDMs];
+        } else {
+          finalState.pendingDMs = cloudData.state.pendingDMs || [];
+        }
+        
+        finalState.avatarRequests = cloudData.state.avatarRequests || [];
+        finalState.avatarResponses = cloudData.state.avatarResponses || [];
+      } else if (customQueues && customQueues.pendingDMs) {
+        finalState.pendingDMs = customQueues.pendingDMs;
+      }
+      
+      await supabase.from('doea_state').upsert({ id: 1, state: finalState });
+    } catch(e) {
+      console.error(e);
+    }
   };
 
   const toggleAudio = () => {
@@ -726,9 +747,9 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
     };
     
     if (editingPerson) {
-      let pendingDMs = data.pendingDMs || [];
+      let newDM = null;
       if (editingPerson.discordId || discordId) {
-         pendingDMs = [...pendingDMs, {
+         newDM = {
             dmId: Date.now().toString(),
             action: 'EDIT',
             discordId: discordId || editingPerson.discordId,
@@ -737,12 +758,12 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
             department: personData.department,
             clearance: personData.clearance,
             code: personData.id
-         }];
+         };
       }
-      setData({...data, personnel: (data.personnel || []).map(p => p.id === editingPerson.id ? personData : p), pendingDMs});
+      setData({...data, personnel: (data.personnel || []).map(p => p.id === editingPerson.id ? personData : p)}, newDM ? { pendingDMs: [newDM] } : null);
       logAction(`UPDATED PERSONNEL: ${personData.name}`);
     } else {
-      let pendingDMs = data.pendingDMs || [];
+      let newDM = null;
       if (discordId) {
         // --- INVISIBLE PHOTO STUDIO ---
         const wrapper = document.createElement('div');
@@ -814,7 +835,7 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
           document.body.removeChild(wrapper);
         }
 
-        pendingDMs = [...pendingDMs, {
+        newDM = {
           dmId: Date.now().toString(),
           action: 'CREATE',
           discordId,
@@ -824,9 +845,9 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
           clearance: personData.clearance,
           code: personData.id,
           photoData
-        }];
+        };
       }
-      setData({...data, personnel: [personData, ...(data.personnel || [])], pendingDMs});
+      setData({...data, personnel: [personData, ...(data.personnel || [])]}, newDM ? { pendingDMs: [newDM] } : null);
       logAction(`REGISTERED PERSONNEL: ${personData.name}`);
     }
     
@@ -872,16 +893,16 @@ function PersonnelView({ data, setData, logAction, currentUser, setPrint }) {
                   <button style={{flex: 1, padding: '5px', fontSize: '0.8rem', backgroundColor: '#500', borderColor: '#a00', color: 'white'}} onClick={() => { 
                     audio.playBeep('error'); 
                     if(confirm(`Are you sure you want to terminate the record for ${person.name}?`)) {
-                      let pendingDMs = data.pendingDMs || [];
+                      let newDM = null;
                       if (person.discordId) {
-                         pendingDMs = [...pendingDMs, {
+                         newDM = {
                             dmId: Date.now().toString(),
                             action: 'DELETE',
                             discordId: person.discordId,
                             name: person.name
-                         }];
+                         };
                       }
-                      setData({...data, personnel: data.personnel.filter(p => p.id !== person.id), pendingDMs});
+                      setData({...data, personnel: data.personnel.filter(p => p.id !== person.id)}, newDM ? { pendingDMs: [newDM] } : null);
                       logAction(`DELETED PERSONNEL RECORD: ${person.name}`);
                     }
                   }}>DELETE</button>

@@ -5,9 +5,10 @@ const { createClient } = require('@supabase/supabase-js');
 // Conexión a la nube de Supabase compartida con la web
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
 const processedDMs = new Set();
+const activePolygraphs = new Map();
 
 // Definimos nuestros dos primeros comandos
 const commands = [
@@ -36,6 +37,51 @@ const commands = [
   {
     name: 'override',
     description: 'Generates a temporary authorization code to enter the web (High Command Only)',
+  },
+  {
+    name: 'redact',
+    description: 'Generates an official SCP classified document from text',
+    options: [
+      {
+        name: 'text',
+        description: 'Text to redact. Use [brackets] to force redact specific words.',
+        type: 3, // STRING
+        required: true
+      },
+      {
+        name: 'level',
+        description: 'Redaction level (1: Light, 2: Medium, 3: Heavy)',
+        type: 4, // INTEGER
+        required: false,
+        choices: [
+          { name: 'Level 1 (Light)', value: 1 },
+          { name: 'Level 2 (Medium)', value: 2 },
+          { name: 'Level 3 (Heavy)', value: 3 }
+        ]
+      }
+    ]
+  },
+  {
+    name: 'polygraph',
+    description: 'Attaches or detaches a polygraph to an agent in the current channel',
+    options: [
+      {
+        name: 'action',
+        description: 'Start or Stop the polygraph',
+        type: 3, // STRING
+        required: true,
+        choices: [
+          { name: 'Start Interrogation', value: 'start' },
+          { name: 'Stop Interrogation', value: 'stop' }
+        ]
+      },
+      {
+        name: 'target',
+        description: 'The user to interrogate',
+        type: 6, // USER
+        required: true
+      }
+    ]
   }
 ];
 
@@ -277,6 +323,85 @@ client.on('interactionCreate', async interaction => {
       .setDescription(`Your temporary single-use access code is:\n\n**\`${randomCode}\`**\n\nEnter it in the web terminal under *Manual Override*.\nThis code will be destroyed after use.`);
       
     await interaction.editReply({ embeds: [embed] });
+  }
+  // COMANDO /REDACT
+  if (interaction.commandName === 'redact') {
+    const text = interaction.options.getString('text');
+    const level = interaction.options.getInteger('level') || 2;
+    
+    // Explicit brackets
+    let redactedText = text.replace(/\[(.*?)\]/g, (match, p1) => {
+      return '█'.repeat(p1.length);
+    });
+
+    const words = redactedText.split(' ');
+    const probability = level === 1 ? 0.15 : (level === 2 ? 0.35 : 0.65);
+    
+    const finalWords = words.map(word => {
+      if (!word.includes('█') && word.length > 3 && Math.random() < probability) {
+        return '█'.repeat(word.length);
+      }
+      return word;
+    });
+
+    const embed = new EmbedBuilder()
+      .setTitle('CLASSIFIED DOCUMENT - LEVEL 4 CLEARANCE REQUIRED')
+      .setColor('#000000')
+      .setDescription(finalWords.join(' '))
+      .setFooter({ text: 'DoEA Information Security Administration' });
+
+    await interaction.reply({ embeds: [embed] });
+  }
+
+  // COMANDO /POLYGRAPH
+  if (interaction.commandName === 'polygraph') {
+    const action = interaction.options.getString('action');
+    const target = interaction.options.getUser('target');
+    
+    if (action === 'start') {
+      activePolygraphs.set(target.id, interaction.channelId);
+      const embed = new EmbedBuilder()
+        .setTitle('🩺 POLYGRAPH ATTACHED')
+        .setColor('#ffff00')
+        .setDescription(`Vitals monitoring initiated for **${target.username}**.\n*Awaiting subject response...*`);
+      await interaction.reply({ embeds: [embed] });
+    } else {
+      if (activePolygraphs.has(target.id)) {
+        activePolygraphs.delete(target.id);
+        const embed = new EmbedBuilder()
+          .setTitle('🔌 POLYGRAPH DETACHED')
+          .setColor('#00ff00')
+          .setDescription(`Vitals monitoring terminated for **${target.username}**.`);
+        await interaction.reply({ embeds: [embed] });
+      } else {
+        await interaction.reply({ content: `No active polygraph found for ${target.username}.`, ephemeral: true });
+      }
+    }
+  }
+});
+
+client.on('messageCreate', async message => {
+  if (message.author.bot) return;
+  
+  if (activePolygraphs.has(message.author.id)) {
+    const channelId = activePolygraphs.get(message.author.id);
+    if (message.channelId === channelId) {
+      const isLying = Math.random() > 0.5;
+      const percentage = Math.floor(Math.random() * 30) + 70;
+      
+      let embed;
+      if (isLying) {
+        embed = new EmbedBuilder()
+          .setColor('#ff0000')
+          .setDescription(`🔴 **[POLYGRAPH ANOMALY DETECTED]**\nVitals Spike. Probability of deception: **${percentage}%**`);
+      } else {
+        embed = new EmbedBuilder()
+          .setColor('#00ff00')
+          .setDescription(`🟢 **[VITALS STABLE]**\nStatement aligns with baseline truth parameters.`);
+      }
+      
+      await message.reply({ embeds: [embed] });
+    }
   }
 });
 
