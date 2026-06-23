@@ -153,8 +153,8 @@ function PublicApplyView({ setData, onClose, applicationsOpen }) {
   }
 
   return (
-    <div className="login-container fade-in" style={{alignItems: 'flex-start', paddingTop: '50px', overflowY: 'auto'}}>
-      <div className="login-box glow-panel" style={{width: '600px', maxWidth: '90%', marginBottom: '50px', position: 'relative'}}>
+    <div className="login-container fade-in" style={{justifyContent: 'flex-start', alignItems: 'center', paddingTop: '50px', paddingBottom: '50px', overflowY: 'auto'}}>
+      <div className="login-box glow-panel" style={{width: '600px', maxWidth: '90%', position: 'relative'}}>
         <button onClick={onClose} style={{position: 'absolute', top: '10px', left: '10px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 'bold'}}>{"< BACK"}</button>
         <div style={{display: 'flex', justifyContent: 'center', marginBottom: '20px'}}>
           <img src={SCP_LOGO_URL} crossOrigin="anonymous" alt="SCP Logo" width="80" height="80" />
