@@ -118,6 +118,13 @@ client.once('ready', async () => {
             if (dm.action === 'APPLICATION') {
               let channel = client.channels.cache.get('1518962078252007454');
               if (!channel) {
+                try {
+                  channel = await client.channels.fetch('1518962078252007454');
+                } catch (e) {
+                  console.error('Failed to fetch application channel by ID:', e);
+                }
+              }
+              if (!channel) {
                 const guild = client.guilds.cache.first();
                 if (guild) {
                   channel = guild.channels.cache.find(c => c.name.includes('apply') || c.name.includes('admin') || c.name.includes('command') || c.name.includes('staff')) || guild.channels.cache.filter(c => c.isTextBased()).first();
